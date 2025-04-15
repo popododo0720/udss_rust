@@ -1,0 +1,8 @@
+[package]
+name = "udss"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pcap = "2.2.0"
+clap = { "4.5.36", features = ["derive"] }
