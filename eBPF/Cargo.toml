@@ -1,0 +1,15 @@
+[package]
+name = "eBPF_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.36", features = ["derive"] }
+aya = { version = "0.13.1", features = ["async_tokio"] }
+aya-log = "0.2.1"
+tokio = { version = "1.44.2", features =["full"] }
+anyhow = "1.0.98"
+env_logger = "0.11.8"
+log = "0.4.27"
+aya-log-ebpf = "0.1.1"
+bytes = "1.10.1"
