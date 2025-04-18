@@ -9,3 +9,9 @@ sudo ip link set enp11s0 promisc on
 ```
 RUST_LOG=info cargo run
 ```
+
+## build
+```
+rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
+```
