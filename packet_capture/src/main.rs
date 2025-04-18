@@ -11,7 +11,7 @@ use anyhow::Context as _;
 use bytes::BytesMut;
 
 // RUST_LOG=info cargo run
-// RUST_LOG=info cargo run --features vlan_enabled
+// sudo ip link set enp11s0 promisc on
 
 // filter.c 에서 packet_info
 #[repr(C)]
@@ -27,7 +27,7 @@ struct PacketInfo {
     src_port: u16,
     dst_port: u16,
     dns_tr_id: u16,
-    // dns_query: [u8; 50],
+    dns_query: [u8; 80],
 }
 
 // 바이트슬라이스 packetinfo 로 변환위한 unsafe trait
@@ -126,17 +126,58 @@ async fn main() -> Result<(), anyhow::Error> {
 
                         let dns_tr_id = u16::from_be(packet_info.dns_tr_id);
 
-                        info!("mac: [{}] -> [{}] vlan_tci: {} vlan_proto: {:#06X} \nip_id: {}, ip: {} -> {} \nsrc_port: {}, dst_port: {} \n dns_tr_id: {}", 
+                        let mut domain_name = String::new();
+                        let mut current_pos = 0;
+                        let query_bytes = &packet_info.dns_query; 
+                        loop {
+                            if current_pos >= query_bytes.len() {
+                                break;
+                            }
+
+                            let label_len = query_bytes[current_pos] as usize;
+
+                            if label_len == 0 {
+                                break;
+                            }
+
+                            if current_pos + 1 + label_len > query_bytes.len() {
+                                domain_name.push_str("[Invalid]");
+                                break;
+                            }
+
+                            let label_slice = &query_bytes[current_pos + 1 .. current_pos + 1 + label_len];
+
+                            let label_str = String::from_utf8_lossy(label_slice);
+
+                            if !domain_name.is_empty() {
+                                domain_name.push('.');
+                            }
+                            domain_name.push_str(&label_str);
+
+                            current_pos += 1 + label_len;
+                        }
+
+                        let type_start_index = current_pos + 1;
+                        let class_end_index = current_pos + 5;
+                        let mut dns_qtype_raw: u16 = 0;
+
+                        if class_end_index <= query_bytes.len() {
+                            let dns_type_slice = &query_bytes[type_start_index .. type_start_index + 2];
+                            dns_qtype_raw = u16::from_be_bytes([dns_type_slice[0], dns_type_slice[1]]);
+                        }
+
+                        info!("mac: [{}] -> [{}] vlan_tci: {} vlan_proto: {:#06X} \nip_id: {}, ip: {} -> {} \nsrc_port: {}, dst_port: {} \n dns_tr_id: {}, dns_payload: {} \n dns_qtype: {:#06X}", 
                             src_mac, dst_mac, vlan_id, vlan_proto, 
                             ip_id, src_ip_addr, dst_ip_addr, 
                             src_port, dst_port
-                            , dns_tr_id);
+                            , dns_tr_id, domain_name, dns_qtype_raw);
                     }
                 }
             }
         });
     }
 
+    tokio::time::sleep(Duration::from_secs(1)).await;
     info!("Waiting for Ctrl-C...");
     signal::ctrl_c().await?;
 

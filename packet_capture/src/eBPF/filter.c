@@ -27,7 +27,7 @@ struct packet_info {
     __u16 src_port;
     __u16 dst_port;
     __u16 dns_tr_id;
-    __u8 dns_query[50];
+    __u8 dns_query[80];
 };
 
 struct vlan_hdr {
@@ -109,28 +109,10 @@ int xdp_filter(struct xdp_md *ctx) {
         return XDP_DROP;
     }
 
-    __u8 *dns_query_start = (__u8 *)dnsh + sizeof(struct dns_hdr);
-    if ((void *)(dns_query_start + 1) > data_end) {
+    __u8 *dns_payload_start  = (__u8 *)dnsh + sizeof(struct dns_hdr);
+    if ((void *)(dns_payload_start  + 1) > data_end) {
         return XDP_DROP;
     }
-
-    // char domain[50] = {0};  
-    // __u8 *ptr = dns_query_start;
-    // int offset = 0;
-
-    // while (*ptr != 0 && (void *)(ptr + 1) <= data_end) {
-    //     int len = *ptr;  
-    //     if (offset + len >= 50) break; 
-
-    //     ptr++;  
-    //     for (int i = 0; i < len; i++) {
-    //         domain[offset++] = *ptr++;
-    //     }
-
-    //     domain[offset++] = '.';  
-    // }
-
-    // if (offset > 0) domain[offset - 1] = '\0';
 
     // dst port
     if( udph->dest == __constant_htons(53) ) {
@@ -152,6 +134,29 @@ int xdp_filter(struct xdp_md *ctx) {
         info.dst_port = udph->dest;
 
         info.dns_tr_id = dnsh->transaction_id;
+
+        long remaining_payload_size = (long)data_end - (long)dns_payload_start;
+
+        int copy_size = sizeof(info.dns_query) - 1; 
+        if (remaining_payload_size < 0) { 
+            remaining_payload_size = 0;
+        }
+        if (remaining_payload_size < copy_size) {
+            copy_size = remaining_payload_size;
+        }
+
+        if (copy_size > 0) {
+            if (bpf_probe_read_kernel(&info.dns_query[0], copy_size, dns_payload_start) < 0) {
+                info.dns_query[0] = '\0'; 
+                copy_size = 0; 
+            }
+        }
+
+        if (copy_size >= 0 && copy_size < sizeof(info.dns_query)) {
+            info.dns_query[copy_size] = '\0';
+        } else {
+            info.dns_query[sizeof(info.dns_query) - 1] = '\0';
+        }
 
         long status = bpf_perf_event_output(ctx, &perf_output, BPF_F_CURRENT_CPU, &info, sizeof(info));
         if( status != 0 ) {
