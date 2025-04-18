@@ -116,7 +116,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         let vlan_proto = packet_info.vlan_proto;
                         let vlan_id = vlan_tci & 0x0FFF;
 
-                        let ip_id = packet_info.ip_id;
+                        let ip_id = u16::from_be(packet_info.ip_id);
 
                         let src_ip_addr = Ipv4Addr::from(u32::from_be(packet_info.src_ip));
                         let dst_ip_addr = Ipv4Addr::from(u32::from_be(packet_info.dst_ip));
@@ -126,7 +126,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
                         let dns_tr_id = u16::from_be(packet_info.dns_tr_id);
 
-                        info!("mac: [{}] -> [{}] vlan_tci: {} vlan_proto: {} \nip_id: {}, ip: {} -> {} \nsrc_port: {}, dst_port: {} \n dns_tr_id: {}", 
+                        info!("mac: [{}] -> [{}] vlan_tci: {} vlan_proto: {:#06X} \nip_id: {}, ip: {} -> {} \nsrc_port: {}, dst_port: {} \n dns_tr_id: {}", 
                             src_mac, dst_mac, vlan_id, vlan_proto, 
                             ip_id, src_ip_addr, dst_ip_addr, 
                             src_port, dst_port
