@@ -13,6 +13,10 @@ use bytes::BytesMut;
 // RUST_LOG=info cargo run
 // sudo ip link set enp11s0 promisc on
 
+// musl 타겟으로 빌드
+// rustup target add x86_64-unknown-linux-musl
+// cargo build --release --target x86_64-unknown-linux-musl
+
 // filter.c 에서 packet_info
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -48,9 +52,9 @@ async fn main() -> Result<(), anyhow::Error> {
         "eBPF/filter.o"
     ))?;
 
-    if let Err(e) = EbpfLogger::init(&mut bpf) {
-        warn!("failed to initialize eBPF logger: {}", e);
-    }
+    // if let Err(e) = EbpfLogger::init(&mut bpf) {
+    //     warn!("failed to initialize eBPF logger: {}", e);
+    // }
 
     let program: &mut Xdp = bpf.program_mut("xdp_filter").unwrap().try_into()?;
     program.load()?;
@@ -171,6 +175,11 @@ async fn main() -> Result<(), anyhow::Error> {
                             ip_id, src_ip_addr, dst_ip_addr, 
                             src_port, dst_port
                             , dns_tr_id, domain_name, dns_qtype_raw);
+
+                        // println!("mac: [{}] -> [{}] vlan_tci: {} vlan_proto: {:#06X} \nip_id: {}, ip: {} -> {} \nsrc_port: {}, dst_port: {}",
+                        //     src_mac, dst_mac, vlan_id, vlan_proto,
+                        //     ip_id, src_ip_addr, dst_ip_addr,
+                        //     src_port, dst_port);
                     }
                 }
             }

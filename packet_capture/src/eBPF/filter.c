@@ -7,14 +7,6 @@
 
 // clang -O2 -g -target bpf -c filter.c -o filter.o
 
-// 사용자로 보낼 Perf Event Array 맵
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(__u32));
-    __uint(max_entries, 1024); 
-} perf_output SEC(".maps");
-
 // 패킷 메타데이터 담을 구조체
 struct packet_info {
     __u8 src_mac[6];  
@@ -29,6 +21,14 @@ struct packet_info {
     __u16 dns_tr_id;
     __u8 dns_query[80];
 };
+
+// 사용자로 보낼 Perf Event Array 맵
+struct {
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1024); 
+} perf_output SEC(".maps");
 
 struct vlan_hdr {
     __u16 h_vlan_TCI;                // VLAN ID + Priority + CFI (16비트)
@@ -116,7 +116,7 @@ int xdp_filter(struct xdp_md *ctx) {
 
     // dst port
     if( udph->dest == __constant_htons(53) ) {
-        struct packet_info info = {};
+        struct packet_info info = {0};
         for (int i = 0; i < 6; i++) {
             info.src_mac[i] = eth->h_source[i];
             info.dst_mac[i] = eth->h_dest[i];
